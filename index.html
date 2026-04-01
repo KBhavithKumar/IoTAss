@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Flood Monitoring System - Final Research UI</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Ionicons -->
+<script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+
+<style>
+body {
+  background: linear-gradient(rgba(248,250,252,0.9), rgba(248,250,252,0.9)),
+              url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e');
+  background-size: cover;
+}
+
+.card {
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  padding: 15px;
+  text-align: center;
+  transition: 0.3s;
+}
+
+.active {
+  transform: scale(1.08);
+  border: 3px solid #7c3aed;
+}
+
+.line {
+  height: 4px;
+  background: #ddd;
+  position: relative;
+  overflow: hidden;
+}
+
+.flow::after {
+  content:"";
+  position:absolute;
+  width:50px;
+  height:100%;
+  background:white;
+  animation:flow 1s linear infinite;
+}
+
+@keyframes flow {
+  from { left:-50px; }
+  to { left:100%; }
+}
+
+.water {
+  background: linear-gradient(to top, #7c3aed, #a78bfa);
+}
+
+/* MODAL */
+.modal {
+  position: fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background: rgba(0,0,0,0.6);
+  display:none;
+  justify-content:center;
+  align-items:center;
+}
+
+.modal-content {
+  background:white;
+  padding:30px;
+  border-radius:16px;
+  text-align:center;
+  width:300px;
+}
+</style>
+</head>
+
+<body class="p-6">
+
+<h1 class="text-3xl text-center font-bold mb-6 text-purple-700">
+🌊 Smart Flood Monitoring System
+</h1>
+
+<!-- CONTROL -->
+<div class="card mb-6">
+  Water Level:
+  <input type="range" id="waterInput" min="0" max="100" value="20" class="w-full">
+</div>
+
+<!-- PIPELINE -->
+<div class="grid grid-cols-6 gap-4 items-center">
+
+<div id="sensor" class="card bg-blue-100">
+<ion-icon name="pulse-outline" size="large"></ion-icon>
+<p>Sensor</p><p id="sensorVal">20%</p>
+</div>
+
+<div id="l1" class="line"></div>
+
+<div id="process" class="card bg-yellow-100">
+<ion-icon name="settings-outline" size="large"></ion-icon>
+<p>Processing</p><p id="processVal">--</p>
+</div>
+
+<div id="l2" class="line"></div>
+
+<div id="server" class="card bg-green-100">
+<ion-icon name="cloud-outline" size="large"></ion-icon>
+<p>Cloud</p><p id="serverVal">--</p>
+</div>
+
+<div id="l3" class="line"></div>
+
+<div id="prediction" class="card bg-purple-100">
+<ion-icon name="analytics-outline" size="large"></ion-icon>
+<p>AI</p><p id="predVal">--</p>
+</div>
+
+<div id="l4" class="line"></div>
+
+<div id="alert" class="card bg-red-100">
+<ion-icon name="warning-outline" size="large"></ion-icon>
+<p>Alert</p><p id="alertVal">SAFE</p>
+</div>
+
+<div id="l5" class="line"></div>
+
+<div id="visual" class="card bg-indigo-100">
+<ion-icon name="desktop-outline" size="large"></ion-icon>
+<p>Dashboard</p>
+</div>
+
+</div>
+
+<!-- OUTPUT SECTION -->
+<div class="grid grid-cols-3 gap-6 mt-6">
+
+<!-- WATER -->
+<div class="card">
+<h3>Water Level</h3>
+<div class="h-48 bg-blue-100 relative rounded">
+<div id="waterFill" class="absolute bottom-0 w-full water"></div>
+</div>
+</div>
+
+<!-- FINAL OUTPUT (BIG) -->
+<div class="card border-4 border-purple-600 p-6">
+<h3 class="text-gray-500">Flood Status</h3>
+
+<p id="finalOutput" class="text-5xl font-bold mt-3 text-green-600">
+SAFE
+</p>
+
+<p class="text-sm text-gray-400 mt-2">
+Real-time AI Decision Output
+</p>
+</div>
+
+<!-- STATUS -->
+<div class="card">
+<h3>System Status</h3>
+<p id="statusText">Waiting...</p>
+</div>
+
+</div>
+
+<!-- SMALL GRAPH -->
+<div class="card mt-6" style="height:200px;">
+<h3 class="text-sm text-gray-500">Trend (Secondary)</h3>
+<canvas id="chart"></canvas>
+</div>
+
+<!-- MODAL -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <h2 id="modalText"></h2>
+    <button onclick="closeModal()" class="mt-4 bg-purple-600 text-white px-4 py-2 rounded">OK</button>
+  </div>
+</div>
+
+<script>
+const slider = document.getElementById("waterInput");
+
+const chart = new Chart(document.getElementById('chart'), {
+  type:'line',
+  data:{labels:[],datasets:[{data:[],borderColor:'purple'}]}
+});
+
+slider.oninput = function(){ runSystem(this.value); };
+
+function activate(id){
+  document.getElementById(id).classList.add("active");
+}
+
+function reset(){
+  document.querySelectorAll(".card").forEach(c=>c.classList.remove("active"));
+  document.querySelectorAll(".line").forEach(l=>l.classList.remove("flow"));
+}
+
+async function runSystem(val){
+
+  reset();
+
+  activate("sensor");
+  sensorVal.innerText = val+"%";
+  waterFill.style.height = val+"%";
+  statusText.innerText="Sensing...";
+  await delay(300);
+
+  l1.classList.add("flow");
+
+  activate("process");
+  let processed = val*0.9;
+  processVal.innerText = processed+"%";
+  statusText.innerText="Processing...";
+  await delay(300);
+
+  l2.classList.add("flow");
+
+  activate("server");
+  serverVal.innerText = processed+"%";
+  statusText.innerText="Sending to cloud...";
+  await delay(300);
+
+  l3.classList.add("flow");
+
+  activate("prediction");
+  let prediction = processed + 10;
+  predVal.innerText = prediction+"%";
+  statusText.innerText="AI predicting...";
+  await delay(300);
+
+  l4.classList.add("flow");
+
+  activate("alert");
+
+  let status="";
+  if(prediction>80){
+    status="CRITICAL";
+    finalOutput.style.color="red";
+    showModal("🚨 CRITICAL FLOOD ALERT!");
+  }
+  else if(prediction>60){
+    status="WARNING";
+    finalOutput.style.color="orange";
+    showModal("⚠️ Flood Warning");
+  }
+  else{
+    status="SAFE";
+    finalOutput.style.color="green";
+  }
+
+  alertVal.innerText=status;
+  finalOutput.innerText=status;
+
+  statusText.innerText="Generating alert...";
+  await delay(300);
+
+  l5.classList.add("flow");
+  activate("visual");
+
+  chart.data.labels.push(chart.data.labels.length+1);
+  chart.data.datasets[0].data.push(prediction);
+  chart.update();
+
+  statusText.innerText="Dashboard updated";
+}
+
+function showModal(msg){
+  modal.style.display="flex";
+  modalText.innerText=msg;
+}
+
+function closeModal(){
+  modal.style.display="none";
+}
+
+function delay(ms){
+  return new Promise(r=>setTimeout(r,ms));
+}
+</script>
+
+</body>
+</html>
